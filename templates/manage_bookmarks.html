@@ -1,0 +1,12 @@
+{% extends "skeleton.html" %}
+{% block title %}tagger{% endblock %}
+{% block content %}
+<p> import bookmarks from a bookmarks.html</b>
+<form method="POST" action="/manage_bookmarks" enctype="multipart/form-data">
+    <label for="bookmarksFile">select file:</label></td>
+    <input type="file" id="bookmarksFile" name="bookmarksFile" size="80"><br></td>
+    <button type="submit">upload</button>
+
+</form>
+
+{% endblock %}

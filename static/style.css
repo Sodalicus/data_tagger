@@ -1,0 +1,55 @@
+/*
+ * style.css
+ * Copyright (C) 2023 soda
+ *
+ * Distributed under terms of the MIT license.
+ */
+
+body {
+	background:  #bfbfbf;
+	color: black;
+    width: 80%;
+    height: 80%;
+    border: solid black 2px;
+    padding: 20px;
+}
+
+a {
+    color: black;
+}
+
+input[type=text] {
+}
+
+.row_button {
+    display: inline-block;
+    float: left;
+
+}
+
+.notes_table {
+    padding: 10px;
+    background: #8c8c8c;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    margin: 20px 0px;
+}
+
+.notes_table th {
+    padding: 10px;
+    background: #cccccc;
+}
+
+.notes_table td, tr {
+    padding: 10px;
+}
+
+table.notes_table td:nth-child(odd) {
+    background-color: #d9d9d9;
+}
+
+#tagsCounted {
+    border: solid black 1px;
+    padding: 10px;
+}

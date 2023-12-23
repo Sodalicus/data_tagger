@@ -1,0 +1,137 @@
+{% extends "skeleton.html" %}
+{% block title %}tagger{% endblock %}
+{% block content %}
+        <form action="/add_item" method="POST" enctype=multipart/form-data>
+            <table>
+                <tr>
+                    <td><label for="itemName">name:</label></td>
+                    <td><input type="text" id="itemName" name="itemName" size="80" required><br></td>
+                </tr>
+                <tr>
+                    <td><label for="bookmarkUrl">url:</label></td>
+                    <td><input type="text" id="bookmarkUrl" name="bookmarkUrl" size="80"><br></td>
+                </tr>
+                <tr>
+                    <td><label for="itemTags">tags(comma separated):</label></td>
+                    <td><input type="text" id="itemTags" name="itemTags" size="80"><br></td>
+                </tr>
+                <tr>
+                    <td><label for="incFile">select file:</label></td>
+                    <td><input type="file" id="incFile" name="incFile" size="80"><br></td>
+                </tr>
+                <tr>
+                    <td>
+
+                    <input type="radio" id="itemType" name="itemType" value="bookmark" checked>
+                    <label for="radio_bookmark">Add bookmark</labe>
+                    <input type="radio" id="itemType" name="itemType" value="file" checked>
+                    <label for="radio_bookmark">Add file</labe>
+                    </td>
+
+                </tr>
+                <tr>
+                    <td>
+                    <button type="submit">Submit</button>
+                    </td>
+                </tr>
+            </table>
+        </form>
+        <form action="/" method="GET">
+            <button type="submit" class="">main</button>
+        </form>
+        <br><br>
+        <form action="/" method="GET">
+            <input type="hidden" name="tag" value=":all">
+            <button type="submit" class="">all items</button>
+        </form>
+        <form action="/" method="GET">
+            <input type="hidden" name="tag" value=":tagless">
+            <button type="submit" class="">tagless</button>
+        </form>
+
+        {% if bookmarks %}
+        <div id="bookmarks">
+            bookmarks
+            <table class="notes_table">
+                <th> id </th>
+                <th> name </th>
+                <th> url </th>
+                <th> tags </th>
+                <th> status </th>
+                <th> action </th>
+                {% for bookmark in bookmarks %}
+                    <tr>
+                        <td> #{{ bookmark['id'] }} </td>
+                        <td> {{ bookmark['name'] }} </td>
+                        <td> <a href="{{ bookmark['url'] }}" target='_blank'>{{ bookmark['url'] }}</a> </td>
+                        <td> {% for itemTag in bookmark['tags'] %} 
+                            <a href="/?tag={{ itemTag }}">#{{ itemTag }}</a>
+                             {% endfor %}
+                        </td>
+                        <td>
+                            {{ bookmark['status'] }}
+                        </td>
+                        <td>
+                            <form action="/delete_item" method="POST">
+                                <input type="hidden" id="hidden_input" name="bookmark" value="{{ bookmark['id'] }}">
+                                {% if tag %}
+                                <input type="hidden" name="currentTag" value="{{ tag }}">
+                                {% endif %}
+                                <button type="submit" class="row_button">D</button>
+                            </form>
+                            <form action="/edit_item" method="GET" target="_blank">
+                                <input type="hidden" name="bookmark" value="{{ bookmark['id'] }}">
+                                {% if tag %}
+                                <input type="hidden" name="currentTag" value="{{ tag }}">
+                                {% endif %}
+                                <button type="submit" class="row_button">E</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </table>
+        {% endif %}
+        </div>
+
+        {% if notes %}
+        <caption>notes</caption>
+            <table class="notes_table">
+                <th> id </th> 
+                <th> name </th>
+                <th> note file </th>
+                <th> tags </th>
+                <th> action </th>
+                {% for note in notes %}
+                    <tr>
+                        <td> #{{ note['id'] }} </td>
+                        <td> {{ note['name'] }} </td>
+                        <td> <a href="{{ note["filepath"] }}" target='_blank'>{{ note["filename"] }}</a> </td>
+                        <td> {% for itemTag in note['tags'] %} 
+                            <a href="/?tag={{ itemTag }}">#{{ itemTag }}</a>
+                             {% endfor %}
+                        </td>
+                        <td>
+                            <form action="/delete_item" method="POST">
+                                <input type="hidden" id="hidden_input" name="note" value="{{ note['id'] }}">
+                                <button type="submit" class="row_button" >D</button>
+                            </form>
+                            <form action="/edit_item" method="GET" target="_blank">
+                                <input type="hidden" name="note" value="{{ note['id'] }}">
+                                <button type="submit" class="row_button">E</button>
+                            </form>
+                       </td>
+                    </tr>
+                {% endfor %}
+            </table>
+        {% endif %}
+
+        <div id='tagsCounted'>
+            {% if tagsCounted %}
+            {% for tag in tagsCounted %}
+            <a href="/?tag={{ tag['tag'] }}">#{{ tag['tag'] }}({{ tag['count'] }})</a>
+            {% endfor %}
+            {% endif %}
+        </div>
+
+{% endblock %}
+		

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+	<head>
+        <meta charset="utf-8" />
+        <title>{% block title %}{% endblock %}</title>
+        <meta name="description" content="">
+        <meta name="keywords" content="">
+        <meta name="author" content="Paweł Krzemiński 'Sodalicus'">
+        <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0">
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+	</head>
+	<body>
+        {% block content %}{% endblock %}
+		
+	</body>
+</html>

@@ -1,0 +1,8 @@
+__pycache__
+*.swp
+*.csv
+*.db
+*.old
+Session.vim
+venv/
+static/files

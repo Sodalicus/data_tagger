@@ -1,0 +1,59 @@
+{% extends "skeleton.html" %}
+{% block title %}tagger - edit item{% endblock %}
+{% block content %}
+    <h2>Edit item</h2>
+        <form action="/edit_item" method="POST" enctype=multipart/form-data>
+            <table>
+                <tr>
+                    <td> Item type: </td>
+                    <td>{{ item['type'] }}
+                        <input type="hidden" name="itemType" value="{{ item['type'] }}">
+                        <input type="hidden" name="itemId" value="{{ item['id'] }}">
+                    </td>
+                </tr>
+                <tr>
+                    <td> Item id: </td>
+                    <td>{{ item['id'] }}
+                    </td>
+                </tr>
+                <tr>
+                    <td><label for="itemName">name:</label></td>
+                    <td><input type="text" id="itemName" name="itemName" value="{{ item['name'] }}" size="80" required><br></td>
+                </tr>
+                <tr>
+                    <td><label for="itemUrl">url:</label></td>
+                    <td><input type="text" id="itemUrl" name="itemUrl" value="{{ item['url'] }}" size="80"><br></td>
+                </tr>
+                <tr>
+                    <td><label for="itemTags">tags(comma separated):</label></td>
+                    <td><input type="text" id="itemTags" name="itemTags" value="{{ item['tags'] }}" size="80" required><br></td>
+                </tr>
+                <tr>
+                    <td><label for="noteFile">file name:</label></td>
+                    <td>{% if item['filename'] %}
+                        {{ item['filename'][20:] }}
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td><label for="noteFilePath">file path:</label></td>
+                    <td>{% if item['filepath'] %}
+                        {{ item['filepath'] }}
+                        {% endif %}
+                        </td>
+                </tr>
+                <tr>
+                    <td>
+                    <button type="submit">Update</button>
+                    </td>
+                </tr>
+            </table>
+        </form>
+        <form action="/" method="GET">
+            {% if tag %}
+            <input type="hidden" name="currentTag" value="{{ tag }}">
+            {% endif %}
+            <button type="submit" class="">main</button>
+        </form>
+        <br><br>
+{% endblock %}
