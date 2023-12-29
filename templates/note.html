@@ -1,0 +1,39 @@
+{% extends "skeleton.html" %}
+{% block title %}tagger - edit note{% endblock %}
+{% block content %}
+    <h2>Edit note</h2>
+        <form action="/note" method="POST" enctype=multipart/form-data>
+            <table>
+                <tr>
+                    <td> note id: </td>
+                    <td>{% if item %} {{ item['id'] }} {% endif %}</td>
+                </tr>
+                <tr>
+                    <td><label for="itemName">name:</label></td>
+                    <td><input type="text" id="itemName" name="itemName" value="{% if item %}{{ item['name'] }}{% endif %}" size="80" required><br></td>
+                </tr>
+                <tr>
+                    <td><label for="itemData">Data:</label></td>
+                    <td><textarea id="itemData" name="itemData" rows="20" cols="80" size="80">{% if item %}{{ item['content'] }}{% endif %}</textarea>
+                        <input type="hidden" name="itemType" value="{% if item %}{{ item['type'] }}{% endif %}">
+                        <input type="hidden" name="itemId" value="{% if item %}{{ item['id'] }}{% endif %}"></td>
+                </tr>
+                <tr>
+                    <td><label for="itemTags">tags(comma separated):</label></td>
+                    <td><input type="text" id="itemTags" name="itemTags" value="{% if item %}{{ item['tags'] }}{% endif %}" size="80" required><br></td>
+                </tr>
+                <tr>
+                    <td>
+                    <button type="submit">Update</button>
+                    </td>
+                </tr>
+            </table>
+        </form>
+        <form action="/" method="GET">
+            {% if tag %}
+            <input type="hidden" name="currentTag" value="{{ tag }}">
+            {% endif %}
+            <button type="submit" class="">main</button>
+        </form>
+        <br><br>
+{% endblock %}

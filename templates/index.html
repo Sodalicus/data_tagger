@@ -22,10 +22,10 @@
                 <tr>
                     <td>
 
-                    <input type="radio" id="itemType" name="itemType" value="bookmark" checked>
+                    <input type="radio" id="radio_bookmark" name="itemType" value="bookmark" checked>
                     <label for="radio_bookmark">Add bookmark</labe>
-                    <input type="radio" id="itemType" name="itemType" value="file" checked>
-                    <label for="radio_bookmark">Add file</labe>
+                    <input type="radio" id="radio_file" name="itemType" value="file">
+                    <label for="radio_file">Add file</labe>
                     </td>
 
                 </tr>
@@ -36,96 +36,84 @@
                 </tr>
             </table>
         </form>
+        <form action="/note" method="GET">
+            <button type="submit" class="">new note</button>
+        </form>
         <form action="/" method="GET">
             <button type="submit" class="">main</button>
         </form>
         <br><br>
-        <form action="/" method="GET">
-            <input type="hidden" name="tag" value=":all">
-            <button type="submit" class="">all items</button>
-        </form>
-        <form action="/" method="GET">
-            <input type="hidden" name="tag" value=":tagless">
-            <button type="submit" class="">tagless</button>
-        </form>
 
-        {% if bookmarks %}
-        <div id="bookmarks">
-            bookmarks
-            <table class="notes_table">
-                <th> id </th>
-                <th> name </th>
-                <th> url </th>
-                <th> tags </th>
-                <th> status </th>
-                <th> action </th>
-                {% for bookmark in bookmarks %}
-                    <tr>
-                        <td> #{{ bookmark['id'] }} </td>
-                        <td> {{ bookmark['name'] }} </td>
-                        <td> <a href="{{ bookmark['url'] }}" target='_blank'>{{ bookmark['url'] }}</a> </td>
-                        <td> {% for itemTag in bookmark['tags'] %} 
-                            <a href="/?tag={{ itemTag }}">#{{ itemTag }}</a>
-                             {% endfor %}
-                        </td>
-                        <td>
-                            {{ bookmark['status'] }}
-                        </td>
-                        <td>
-                            <form action="/delete_item" method="POST">
-                                <input type="hidden" id="hidden_input" name="bookmark" value="{{ bookmark['id'] }}">
-                                {% if tag %}
-                                <input type="hidden" name="currentTag" value="{{ tag }}">
-                                {% endif %}
-                                <button type="submit" class="row_button">D</button>
-                            </form>
-                            <form action="/edit_item" method="GET" target="_blank">
-                                <input type="hidden" name="bookmark" value="{{ bookmark['id'] }}">
-                                {% if tag %}
-                                <input type="hidden" name="currentTag" value="{{ tag }}">
-                                {% endif %}
-                                <button type="submit" class="row_button">E</button>
-                            </form>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </table>
-        {% endif %}
+        <div class="frame_div">
+        <form action="/" method="GET">
+            <label for="filter_input">Filter tags</label>
+            <input type="text" id="filter_input" name="filter_input">
+            <input type="checkbox" id="checkbox_tables_bookmarks" name="b">
+            <label for="checkbox_tables_bookmarks">bookmarks</label>
+
+            <input type="checkbox" id="checkbox_tables_files" name="f">
+            <label for="checkbox_tables_files">files</label>
+
+            <input type="checkbox" id="checkbox_tables_notes" name="n">
+            <label for="checkbox_tables_notes">notes</label>
+            <br>
+
+            <input type="radio" id="radio_tag_all" name="tag" value=":all" checked>
+            <label for="radio_tag_all">all</label> 
+            <input type="radio" id="radio_tag_tagless" name="tag" value=":tagless">
+            <label for="radio_tag_tagless">tagless</label>
+            <button type="submit" class="">filter</button>
+        </form>
         </div>
 
-        {% if notes %}
-        <caption>notes</caption>
+        {% if tables %}{% for table in tables %}
+        {% if table %}
+        <caption>{{ table['name'] }}</caption>
             <table class="notes_table">
-                <th> id </th> 
-                <th> name </th>
-                <th> note file </th>
+                {% for header in table['columns'] %}
+                    <th>{{ header }}</th>
+                {% endfor %}
                 <th> tags </th>
                 <th> action </th>
-                {% for note in notes %}
+                {% for item in table["items"] %}
                     <tr>
-                        <td> #{{ note['id'] }} </td>
-                        <td> {{ note['name'] }} </td>
-                        <td> <a href="{{ note["filepath"] }}" target='_blank'>{{ note["filename"] }}</a> </td>
-                        <td> {% for itemTag in note['tags'] %} 
+                        <td> #{{ item["id"] }} </td>
+                        <td> {{ item["name"] }} </td>
+                        {% if table["name"] == "files" %}
+                            <td> <a href="{{ item["filepath"] }}" target='_blank'>{{ item["filepath"] }}</a> </td>
+                        {% elif table["name"] == "bookmarks" %}
+                            <td> <a href="{{ item["url"] }}" target='_blank'>{{ item['url'] }}</a> </td>
+                        {% elif table["name"] == "notes" %}
+                            <td> <a href="/note?{{ table["type"] }}={{ item["id"] }}" target='_blank'>{{ item['content'][0:50] }}...</a> </td>
+                        {% endif %}
+                        <td> {% for itemTag in item['tags'] %} 
                             <a href="/?tag={{ itemTag }}">#{{ itemTag }}</a>
                              {% endfor %}
                         </td>
                         <td>
                             <form action="/delete_item" method="POST">
-                                <input type="hidden" id="hidden_input" name="note" value="{{ note['id'] }}">
+                                <input type="hidden" id="hidden_input" name="{{ table["type"] }}" value="{{ item["id"] }}">
                                 <button type="submit" class="row_button" >D</button>
                             </form>
-                            <form action="/edit_item" method="GET" target="_blank">
-                                <input type="hidden" name="note" value="{{ note['id'] }}">
-                                <button type="submit" class="row_button">E</button>
-                            </form>
+                            {% if table["name"] == "notes" %}
+                                <form action="/note" method="GET" target="_blank">
+                                    <input type="hidden" name="{{ table["type"] }}" value="{{ item["id"] }}">
+                                    <button type="submit" class="row_button">E</button>
+                                </form>
+                            {% else %}
+                                <form action="/edit_item" method="GET" target="_blank">
+                                    <input type="hidden" name="{{ table["type"] }}" value="{{ item["id"] }}">
+                                    <button type="submit" class="row_button">E</button>
+                                </form>
+                            {% endif %}
                        </td>
                     </tr>
                 {% endfor %}
             </table>
         {% endif %}
+        {% endfor %}{% endif %}
 
-        <div id='tagsCounted'>
+        <div class="frame_div">
             {% if tagsCounted %}
             {% for tag in tagsCounted %}
             <a href="/?tag={{ tag['tag'] }}">#{{ tag['tag'] }}({{ tag['count'] }})</a>

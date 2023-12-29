@@ -38,11 +38,13 @@ from bs4 import BeautifulSoup
 import csv
 
 DBFILE="./base.db"
-FILES_PATH = "./static/files"
+DATATYPES = {'bookmark' : { "table" : "bookmarks", "columns" : ["id", "name", "url"] },\
+            'file' : { "table" : "files", "columns" : ["id", "name", "filepath"] },\
+            'note' : { "table" : "notes", "columns" : ["id", "name", "content"] }}
 
 app = Flask(__name__)
 app.config["UPLOAD_DIR"] = "./static/files"
-app.config["MAX_CONTENT_LENGTH"] = 16 * 1000 * 1000
+app.config["MAX_CONTENT_LENGTH"] = 64 * 1000 * 1000
 
 class DBase():
     """
@@ -65,29 +67,28 @@ def create_table(table):
     """
     with DBase() as cur:
 
-        if table == 'files':
+        if table == 'files' or table == 'all':
             cur.execute("DROP TABLE IF EXISTS files;")
             cur.execute("""CREATE TABLE IF NOT EXISTS files (
                         id INTEGER PRIMARY KEY ASC,
                         name TEXT NOT NULL,
-                        filename TEXT,
                         filepath TEXT);""")
-        if table == 'notes':
+
+        if table == 'notes' or table == 'all':
             cur.execute("DROP TABLE IF EXISTS notes;")
             cur.execute("""CREATE TABLE IF NOT EXISTS notes (
                         id INTEGER PRIMARY KEY ASC,
                         name TEXT NOT NULL,
                         content TEXT);""")
 
-        elif table == 'bookmarks':
+        if table == 'bookmarks' or table == 'all':
             cur.execute("DROP TABLE IF EXISTS bookmarks;")
             cur.execute("""CREATE TABLE IF NOT EXISTS bookmarks (
                         id INTEGER PRIMARY KEY ASC,
                         name TEXT NOT NULL,
-                        url TEXT NOT NULL,
-                        status TEXT );""")
+                        url TEXT NOT NULL);""")
 
-        elif table == 'tags':
+        if table == 'tags' or table == 'all':
             cur.execute("DROP TABLE IF EXISTS tags;")
             cur.execute("""CREATE TABLE IF NOT EXISTS tags (
                         id INTEGER PRIMARY KEY ASC,
@@ -98,6 +99,28 @@ def create_table(table):
                         FOREIGN KEY (file_id) REFERENCES files(id),
                         FOREIGN KEY (note_id) REFERENCES notes(id),
                         FOREIGN KEY (bookmark_id) REFERENCES bookmarks(id));""")
+def create_base():
+    """
+    check if database file exist, check for tables,
+    create tables if they are missing.
+    """
+    try:
+        # try to open file, if it doesnt exist, we get an exception and move to next section
+        db = open(DBFILE, 'r')
+        db.close()
+        with DBase() as cur:
+            # check for tables
+            for t in ('notes', 'files', 'bookmarks', 'tags'):
+                cur.execute("PRAGMA table_info({})".format(t))
+                result = cur.fetchone()
+                # if the table doesnt exist we got None as the result
+                if result == None:
+                    create_table(t)
+    # if database file doesn't exist, create it
+    # sqlite creates database file automatically if you open connection
+    # to non existing database file.
+    except FileNotFoundError:
+        create_table('all')
 
 def rand_string(size=20, chars=string.ascii_lowercase + string.digits):
     """
@@ -110,7 +133,6 @@ def make_tags(tagsString):
     Clear and separate incoming string into list of tags
     """
     if tagsString == "": return None
-    print("tagsString", tagsString)
     # replace/remove all non alphanumerical chars and "_" and ","
     tagsString = sub(r"[^\w,]","", tagsString)
     # strip the leading and trailing comma - no empty tags
@@ -119,16 +141,15 @@ def make_tags(tagsString):
     tagsList = tagsString.split(",")
     # for every tag strip leading and trailing whitespaces
     tagsList = [ tag.strip(" ") for tag in tagsList]
-    print("tagsList", tagsList)
     return tagsList
 
 def insert_file(file):
     """
     Insert a row into files table.
-    files - dictionary with required keys/values: itemName/str, filename/str, filepath/str
+    files - dictionary with required keys/values: itemName/str, filepath/str
     """
     with DBase() as cur:
-        cur.execute("INSERT INTO files VALUES(NULL,?,?,?);", (file['itemName'], file['filename'], file['filepath']))
+        cur.execute("INSERT INTO files VALUES(NULL,?,?);", (file['itemName'],file['filepath']))
 
 def insert_bookmark(bookmark):
     """
@@ -136,7 +157,15 @@ def insert_bookmark(bookmark):
     bookmark - dictionary
     """
     with DBase() as cur:
-        cur.execute("INSERT INTO bookmarks VALUES(NULL, ?, ?, NULL);", (bookmark['itemName'], bookmark['bookmarkUrl']))
+        cur.execute("INSERT INTO bookmarks VALUES(NULL, ?, ?);", (bookmark['itemName'], bookmark['bookmarkUrl']))
+
+def insert_note(note):
+    """
+    insert a row into notes table
+    note - dictionary
+    """
+    with DBase() as cur:
+        cur.execute("INSERT INTO notes VALUES(NULL, ?, ?);", (note['itemName'], note['itemData']))
 
 def insert_tags(tags,itemType,itemId=None):
     """
@@ -147,9 +176,11 @@ def insert_tags(tags,itemType,itemId=None):
     """
     if tags == None: return None
     with DBase() as cur:
-        if itemType == "file":
+        if itemType in ("file", "note", "bookmark"):
+            # table names are plural
+            table = itemType+"s"
             if itemId == None:
-                cur.execute("SELECT id FROM files ORDER BY id DESC LIMIT 1;")
+                cur.execute("SELECT id FROM {} ORDER BY id DESC LIMIT 1;".format(table))
                 lastFileId = cur.fetchone()
                 if lastFileId['id'] == '':
                     return "itemId error"
@@ -158,28 +189,13 @@ def insert_tags(tags,itemType,itemId=None):
                 itemId = lastFileId['id']
             for tag in tags:
                 # dest: id, file_id, note_id, bookmark_id, tag
-                cur.execute("INSERT INTO tags VALUES(NULL, ?, NULL, NULL, ?);", (itemId, tag))
-        elif itemType == "bookmark":
-            if itemId == None:
-                cur.execute("SELECT id FROM bookmarks ORDER BY id DESC LIMIT 1;")
-                lastBookmarkId = cur.fetchone()
-                if lastBookmarkId['id'] == '':
-                    return "itemId error"
-                # no item id given as a parameter, use last row id instead
-                # get last added row id
-                itemId = lastBookmarkId['id']
-            for tag in tags:
-                # dest: id, file_id, note_id, bookmark_id, tag
-                cur.execute("INSERT INTO tags VALUES(NULL, NULL, NULL, ?, ?);", (itemId, tag))
+                cur.execute("INSERT INTO tags ({}_id, tag) VALUES(?,?);".format(itemType), (itemId, tag))
 
 def delete_tags(itemId, itemType):
     """Delete all row of given itemId and itemType from tags table."""
-    if itemType == 'bookmark':
+    if itemType in ('bookmark', 'note', 'file'):
         with DBase() as cur:
-            cur.execute("DELETE FROM tags WHERE bookmark_id=(?);", (itemId,))
-    elif itemType == 'file':
-        with DBase() as cur:
-            cur.execute("DELETE FROM tags WHERE file_id=(?);", (itemId,))
+            cur.execute("DELETE FROM tags WHERE {}_id=(?);".format(itemType), (itemId,))
     else:
         return "unknown item type {}".format(itemType)
 
@@ -188,11 +204,8 @@ def get_tags_per_item(itemId, itemType):
     return a list of tags to which given item belongs to.
     """
     with DBase() as cur:
-        if itemType == 'bookmark':
-            print(itemId)
-            cur.execute("SELECT tag FROM tags WHERE bookmark_id=(?);", (itemId,))
-        elif itemType == 'file':
-            cur.execute("SELECT tag FROM tags WHERE file_id=(?);", (itemId,))
+        if itemType in ('bookmark', 'file', 'note'):
+            cur.execute("SELECT tag FROM tags WHERE {}_id=(?);".format(itemType), (itemId,))
         else:
             return "Item of given type, with given Id, doesn`t exists."
         results = cur.fetchall()
@@ -206,90 +219,84 @@ def get_all_tags_counted():
     return a list of all uniqe tags and count of occurences.
     """
     with DBase() as cur:
-        cur.execute("SELECT tag, COUNT(tag) FROM tags GROUP BY tag ORDER BY COUNT(tag) DESC;")
+        #cur.execute("SELECT tag, COUNT(tag) FROM tags GROUP BY tag ORDER BY COUNT(tag) DESC;")
+        cur.execute("SELECT tag, COUNT(tag) FROM tags GROUP BY tag;")
         tags = cur.fetchall()
         tagsCounted = []
         for tag, count in tags:
             tagsCounted.append({ 'tag' : tag, 'count' : count})
         return tagsCounted
 
-def show_files_by_tag(tag):
+def get_items_by_tag(tag, itemType):
     """
-    SELECT rows from files table by given tag
+    SELECT rows from table of itemType
     return list of dictionaries
     """
-    with DBase() as cur:
-        # show all files
-        if tag == ':all':
-            cur.execute("SELECT id, name, filename, filepath FROM files;")
-        # show all tagless files
-        elif tag == ':tagless':
-            cur.execute("SELECT id, name, filename, filepath FROM files WHERE id NOT IN(SELECT file_id FROM tags WHERE file_id IS NOT NULL);")
-        else:
-            cur.execute("""SELECT files.id,name,filename,filepath FROM files INNER JOIN tags ON files.id = tags.file_id WHERE tags.tag=(?);""", (tag,))
-        files = [dict(row) for row in cur.fetchall()] # convert results of fetchall() (row objects) into list of dicts
-        for file in files:
-            tags = get_tags_per_item(file['id'], 'file')
-            file['tags'] = tags
-            file['filename'] = file['filename'][20:]
-        return files
+    if itemType in list(DATATYPES.keys()):
+        with DBase() as cur:
+            # table name for given itemType, see DATATYPES
+            table = DATATYPES[itemType]["table"]
+            # 3rd column name, 'content' column for given itemType
+            content = DATATYPES[itemType]["columns"][2]
 
-def show_bookmarks_by_tag(tag):
+            # show all item
+            if tag ==  ':all':
+                cur.execute("SELECT * FROM {};".format(table))
+            # show all tagless items
+
+            elif tag == ':tagless':
+                cur.execute("SELECT * FROM {0} WHERE id NOT IN(SELECT {1}_id FROM tags WHERE {1}_id IS NOT NULL);".format(table, itemType))
+
+            else:
+                cur.execute("SELECT {0}.id, name, {2} FROM {0} INNER JOIN tags ON {0}.id = tags.{1}_id WHERE tags.tag=(?);".format(table, itemType, content), (tag,))
+
+            items = [dict(row) for row in cur.fetchall()]
+            for item in items:
+                item['tags']  = get_tags_per_item(item['id'], itemType)
+            return items
+
+def add_table_info(items, itemType):
     """
-    SELECT rows from bookmarks table by given tag
-    return list of dictionaries
+    gets a list of items and wraps them around a dictionary of metadata
+    { "name" : /table_name/, "columns" : /list_of_column_names/, "items" : /list_of_items/ }
     """
-    with DBase() as cur:
-        # show all bookmarks
-        if tag == ':all':
-            cur.execute("SELECT id,name,url,status FROM bookmarks;")
-        # show all tagless bookmarks
-        elif tag == ':tagless':
-            cur.execute("SELECT id,name,url,status FROM bookmarks WHERE id NOT IN(SELECT bookmark_id FROM tags WHERE bookmark_id IS NOT NULL);")
-        else:
-            cur.execute("""SELECT bookmarks.id,name,url,status FROM bookmarks INNER JOIN tags ON bookmarks.id = tags.bookmark_id WHERE tags.tag=(?);""", (tag,))
-        bookmarks = [dict(row) for row in cur.fetchall()]
-        for bookmark in bookmarks:
-            tags = get_tags_per_item(bookmark['id'], 'bookmark')
-            bookmark['tags'] = tags
-        return bookmarks
+    if len(items) == 0:
+        return None
+    table = {}
+    table["name"] = DATATYPES[itemType]["table"]
+    table["type"] = itemType
+    table["columns"] = DATATYPES[itemType]["columns"]
+    table["items"] = items
+    return table
 
 def get_item_by_id(itemId,itemType):
     """
     SELECT row from table of itemType, and tags by id.
     return dict['columns'] = values, with and extra key "tags" for tag list, "type" for item type.
     """
-    if itemType == 'bookmark':
+    if itemType in DATATYPES:
         with DBase() as cur:
-            cur.execute("SELECT id, name, url from bookmarks WHERE id=(?);", (itemId,))
-            results = cur.fetchone()
-    elif itemType == 'file':
-        with DBase() as cur:
-            cur.execute("SELECT id, name, filename, filepath from files WHERE id=(?);", (itemId,))
+            table = itemType+"s"
+            cur.execute("SELECT * from {} WHERE id=(?);".format(table), (itemId,))
             results = cur.fetchone()
 
-    if results != None:
-        item = dict(results)
+        if results != None:
+            item = dict(results)
+        else:
+            return None
+
+        item['type'] = itemType
+        with DBase() as cur:
+            cur.execute("SELECT tag FROM tags WHERE {}_id=(?);".format(itemType), (itemId,))
+            results = [row['tag'] for row in cur.fetchall()]
+
+        if results != None:
+            tags = ",".join(results)
+            item['tags'] = tags
+
+        return item
     else:
-        return None
-
-    if itemType == 'bookmark':
-        item['type'] = 'bookmark'
-        with DBase() as cur:
-            cur.execute("SELECT tag FROM tags WHERE bookmark_id=(?);", (itemId,))
-            results = [row['tag'] for row in cur.fetchall()]
-    elif itemType == 'file':
-        item['type'] = 'file'
-        with DBase() as cur:
-            cur.execute("SELECT tag FROM tags WHERE file_id=(?);", (itemId,))
-            results = [row['tag'] for row in cur.fetchall()]
-
-    if results != None:
-        tags = ",".join(results)
-        item['tags'] = tags
-
-    print(item)
-    return item
+        return "Invalid data type."
 
 def update_item(item):
     """
@@ -303,6 +310,9 @@ def update_item(item):
         # update name whether it has changed or not.
         with DBase() as cur:
             cur.execute("UPDATE files SET name=(?) WHERE id=(?);", (item['itemName'], item['itemId']))
+    elif item['itemType'] == 'note':
+        with DBase() as cur:
+            cur.execute("UPDATE notes SET name=(?), content=(?) WHERE id=(?);", (item['itemName'], item['itemData'], item['itemId']))
     else:
         return "unknown item type, must be 'bookmark' or 'file'."
 
@@ -328,59 +338,70 @@ def import_bookmarks(bookmarksFile):
             insert_bookmark({'itemName' : n.text, 'bookmarkUrl' : n.get('href') })
             insert_tags([tag],'bookmark')
 
-def export_table(table):
+def export_tables():
     """
-    Export table values into 'table'.csv file
+    Export tables values into 'table'.csv file
     """
+    tables = list(DATATYPES.keys())
+    tables.append("tags")
     with DBase() as cur:
-        if table == 'bookmarks':
-            cur.execute("SELECT id, name, url, status FROM bookmarks;")
+        for table in tables:
+            if table == "tags":
+                cur.execute("SELECT * FROM tags;")
+            else:
+                cur.execute("SELECT * FROM {};".format(DATATYPES[table]["table"]))
             results = [dict(row) for row in cur.fetchall()]
-            file = 'bookmarks.csv'
-        elif table == 'tags':
-            cur.execute("SELECT id, note_id, bookmark_id, tag FROM tags;")
-            results =[dict(row) for row in cur.fetchall()]
-            file = './tags.csv'
-        with open(file, 'w', newline='') as f:
-            csvwriter = csv.writer(f, delimiter=',')
-            for result in results:
-                csvwriter.writerow(result.values())
+            file = table+".csv"
+            with open(file, 'w', newline='') as f:
+                csvwriter = csv.writer(f, delimiter=',')
+                for result in results:
+                    csvwriter.writerow(result.values())
 
 def import_table(table):
     """
     Import table values from 'table'.csv file
     """
     with DBase() as cur:
-        if table == 'bookmarks':
-            with open('bookmarks.csv', 'r', newline='') as f:
-                csvreader = csv.reader(f, delimiter=' ')
+        if table == 'bookmark':
+            with open('bookmark.csv', 'r', newline='') as f:
+                csvreader = csv.reader(f, delimiter=',')
                 for row in csvreader:
-                    cur.execute("INSERT INTO bookmarks VALUES(?, ?, ?, NULL);", (row[0], row[1], row[2]))
+                    cur.execute("INSERT INTO bookmarks VALUES(?, ?, ?);", (row[0], row[1], row[2]))
         elif table == 'tags':
             with open('tags.csv', 'r', newline='') as f:
                 csvreader = csv.reader(f, delimiter=',')
                 for row in csvreader:
-                    print(row)
                     # dest: id, file_id, note_id, bookmark_id, tag
                     # source: id, note_id, bookmark_id, tag
-                    cur.execute("INSERT INTO tags VALUES(?, NULL, NULL, ?, ?);", (row[0], row[2], row[3]))
+                    cur.execute("INSERT INTO tags VALUES(?, NULL, NULL, ?, ?);", (row[0], row[3], row[4]))
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     tagsCounted = get_all_tags_counted()
-    files = []
-    bookmarks = []
+    tables = []
     tag = ""
     if request.args:
-        tags = request.args.to_dict()
-        if "tag" in tags.keys():
-            files = show_files_by_tag(tags["tag"])
-            bookmarks = show_bookmarks_by_tag(tags["tag"])
+        getInput = request.args.to_dict()
+        if "tag" in getInput.keys():
+            if "b" in getInput.keys():
+                bookmarks = add_table_info(get_items_by_tag(getInput["tag"], "bookmark"), "bookmark")
+                tables.append(bookmarks)
+            if "f" in getInput.keys():
+                files = add_table_info(get_items_by_tag(getInput["tag"], 'file'), "file")
+                tables.append(files)
+            if "n" in getInput.keys():
+                notes = add_table_info(get_items_by_tag(getInput["tag"], "note"), "note")
+                tables.append(notes)
+            if len(tables) == 0:
+                files = add_table_info(get_items_by_tag(getInput["tag"], 'file'), "file")
+                notes = add_table_info(get_items_by_tag(getInput["tag"], "note"), "note")
+                bookmarks = add_table_info(get_items_by_tag(getInput["tag"], "bookmark"), "bookmark")
+                tables = [bookmarks, notes, files]
             # When you delete an item, so the view goes back to the tag you had picked
-            tag = tags["tag"]
+            tag = getInput["tag"]
 
 
-    return render_template('index.html', tagsCounted=tagsCounted, files = files, bookmarks = bookmarks, tag = tag)
+    return render_template('index.html', tagsCounted=tagsCounted,tables = tables, tag = tag)
 
 @app.route('/add_item', methods=['POST'])
 def add_item():
@@ -397,7 +418,6 @@ def add_item():
                 filename = rand_string()+filename
                 filepath = os.path.join(app.config['UPLOAD_DIR'], filename)
                 file.save(filepath)
-                newItem['filename'] = filename
                 newItem['filepath'] = filepath
                 insert_file(newItem)
                 insert_tags(newItem['itemTags'], newItem['itemType'])
@@ -458,6 +478,29 @@ def edit_item():
         item = get_item_by_id(newItem['itemId'], newItem['itemType'])
         return redirect("/edit_item?"+item['type']+"="+str(item['id']))
 
+@app.route('/note', methods=['GET', 'POST'])
+def edit_note():
+    if request.method == 'GET':
+        if request.args:
+            item = request.args.to_dict()
+            if "note" in item.keys():
+                note = get_item_by_id(item['note'], 'note')
+                return render_template("note.html", item = note)
+
+        else:
+            return render_template("note.html")
+    if request.method == 'POST':
+        note = request.form.to_dict()
+        note['itemTags'] = make_tags(note['itemTags'])
+        if note['itemId'] == "":
+            insert_note(note)
+            insert_tags(note['itemTags'], 'note')
+            return redirect('/')
+        else:
+            update_item(note)
+            item = get_item_by_id(note['itemId'], note['itemType'])
+            return redirect("/note?"+item['type']+"="+str(item['id']))
+
 @app.route('/manage_bookmarks', methods=['GET', 'POST'])
 def manage_bookmarks():
     if request.method == "GET":
@@ -480,4 +523,9 @@ def main():
     print("main")
 
 if __name__ == '__main__':
+    #export_tables()
+    #create_base()
+    #import_table("bookmark")
+    #import_table("tags")
     app.run(debug=True, host='192.168.1.115', port=4000)
+    #print(add_table_info(get_items_by_tag("vim", "bookmark"), "bookmark"))
