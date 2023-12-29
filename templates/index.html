@@ -36,6 +36,9 @@
                 </tr>
             </table>
         </form>
+        <form action="/note" method="GET">
+            <button type="submit" class="">note</button>
+        </form>
         <form action="/" method="GET">
             <button type="submit" class="">main</button>
         </form>
@@ -48,82 +51,42 @@
             <input type="hidden" name="tag" value=":tagless">
             <button type="submit" class="">tagless</button>
         </form>
-
-        {% if bookmarks %}
-        <div id="bookmarks">
-            bookmarks
+        {% if group %}{% for items in group %}
+        <caption>{{ items['name'] }}</caption>
             <table class="notes_table">
-                <th> id </th>
-                <th> name </th>
-                <th> url </th>
-                <th> tags </th>
-                <th> status </th>
-                <th> action </th>
-                {% for bookmark in bookmarks %}
-                    <tr>
-                        <td> #{{ bookmark['id'] }} </td>
-                        <td> {{ bookmark['name'] }} </td>
-                        <td> <a href="{{ bookmark['url'] }}" target='_blank'>{{ bookmark['url'] }}</a> </td>
-                        <td> {% for itemTag in bookmark['tags'] %} 
-                            <a href="/?tag={{ itemTag }}">#{{ itemTag }}</a>
-                             {% endfor %}
-                        </td>
-                        <td>
-                            {{ bookmark['status'] }}
-                        </td>
-                        <td>
-                            <form action="/delete_item" method="POST">
-                                <input type="hidden" id="hidden_input" name="bookmark" value="{{ bookmark['id'] }}">
-                                {% if tag %}
-                                <input type="hidden" name="currentTag" value="{{ tag }}">
-                                {% endif %}
-                                <button type="submit" class="row_button">D</button>
-                            </form>
-                            <form action="/edit_item" method="GET" target="_blank">
-                                <input type="hidden" name="bookmark" value="{{ bookmark['id'] }}">
-                                {% if tag %}
-                                <input type="hidden" name="currentTag" value="{{ tag }}">
-                                {% endif %}
-                                <button type="submit" class="row_button">E</button>
-                            </form>
-                        </td>
-                    </tr>
+                {% for header in items['columns'] %}
+                    <th>{{ header }}</th>
                 {% endfor %}
-            </table>
-        {% endif %}
-        </div>
-
-        {% if notes %}
-        <caption>notes</caption>
-            <table class="notes_table">
-                <th> id </th> 
-                <th> name </th>
-                <th> note file </th>
-                <th> tags </th>
                 <th> action </th>
-                {% for note in notes %}
+                {% for item in items["items"] %}
                     <tr>
-                        <td> #{{ note['id'] }} </td>
-                        <td> {{ note['name'] }} </td>
-                        <td> <a href="{{ note["filepath"] }}" target='_blank'>{{ note["filename"] }}</a> </td>
-                        <td> {% for itemTag in note['tags'] %} 
+                        <td> #{{ item["id"] }} </td>
+                        <td> {{ item["name"] }} </td>
+                        {% if item["type"] == "file" %}
+                            <td> <a href="{{ item["filepath"] }}" target='_blank'>{{ item["filepath"] }}</a> </td>
+                        {% elif item["type"] == "bookmark" %}
+                            <td> <a href="{{ item["url"] }}" target='_blank'>{{ bookmark['url'] }}</a> </td>
+                        {% elif item["type"] == "note" %}
+                            <td> <a href="{{ item["url"] }}" target='_blank'>{{ bookmark['url'] }}</a> </td>
+                        {% endif %}
+                        <td> {% for itemTag in item['tags'] %} 
                             <a href="/?tag={{ itemTag }}">#{{ itemTag }}</a>
                              {% endfor %}
                         </td>
                         <td>
                             <form action="/delete_item" method="POST">
-                                <input type="hidden" id="hidden_input" name="note" value="{{ note['id'] }}">
+                                <input type="hidden" id="hidden_input" name="{% item["type"] %}" value="{{ item["id"] }}">
                                 <button type="submit" class="row_button" >D</button>
                             </form>
                             <form action="/edit_item" method="GET" target="_blank">
-                                <input type="hidden" name="note" value="{{ note['id'] }}">
+                                <input type="hidden" name="{{ item["type"] }}" value="{{ item["id"] }}">
                                 <button type="submit" class="row_button">E</button>
                             </form>
                        </td>
                     </tr>
                 {% endfor %}
             </table>
-        {% endif %}
+        {% endfor %}{% endif %}
 
         <div id='tagsCounted'>
             {% if tagsCounted %}
