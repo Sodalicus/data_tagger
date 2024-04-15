@@ -448,6 +448,11 @@ def delete_item():
             with DBase() as cur:
                 cur.execute("DELETE FROM files WHERE id=(?);", (itemId,))
                 cur.execute("DELETE FROM tags WHERE file_id=(?);", (itemId,))
+        elif 'note' in formData.keys():
+            itemId = formData['note']
+            with DBase() as cur:
+                cur.execute("DELETE FROM notes WHERE id=(?);", (itemId,))
+                cur.execute("DELETE FROM tags WHERE note_id=(?);", (itemId,))
         # When you delete an item, so the view goes back to the tag you had picked
         if 'currentTag' in formData.keys():
             tag = formData['currentTag']
